@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tablero OEE · Tejeduría</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0b1120;
+  --panel:#111c33;
+  --panel2:#16233d;
+  --border:#1f2f4d;
+  --text:#e6edf7;
+  --muted:#8ba0c0;
+  --verde:#22c55e;
+  --amarillo:#f5b301;
+  --rojo:#ef4444;
+  --azul:#3b82f6;
+  --cyan:#06b6d4;
+  --violeta:#8b5cf6;
+  --naranja:#fb923c;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+  font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+  background:radial-gradient(1200px 700px at 15% -10%, #17294a 0%, #0b1120 55%);
+  color:var(--text);
+  min-height:100vh;
+  padding:22px;
+}
+.wrap{max-width:1500px;margin:0 auto;}
+
+/* ---------- HEADER ---------- */
+.header{
+  display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;
+  gap:16px;margin-bottom:22px;
+}
+.header h1{font-size:1.55rem;font-weight:700;letter-spacing:-.4px;}
+.header h1 span{color:var(--cyan);}
+.header .sub{color:var(--muted);font-size:.85rem;margin-top:4px;}
+.badges{display:flex;gap:10px;flex-wrap:wrap;}
+.badge{
+  background:var(--panel);border:1px solid var(--border);
+  padding:7px 14px;border-radius:999px;font-size:.78rem;color:var(--muted);
+}
+.badge b{color:var(--text);}
+
+/* ---------- KPI CARDS ---------- */
+.kpi-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));
+  gap:14px;margin-bottom:20px;
+}
+.kpi{
+  background:linear-gradient(160deg,#152341,#101a2e);
+  border:1px solid var(--border);border-radius:14px;
+  padding:16px 18px;position:relative;overflow:hidden;
+  transition:transform .2s, border-color .2s;
+}
+.kpi:hover{transform:translateY(-3px);border-color:#2c4370;}
+.kpi::before{
+  content:'';position:absolute;top:0;left:0;width:100%;height:3px;
+  background:var(--accent,#3b82f6);
+}
+.kpi-lbl{
+  font-size:.72rem;text-transform:uppercase;letter-spacing:.9px;
+  color:var(--muted);display:flex;align-items:center;gap:7px;margin-bottom:10px;
+}
+.kpi-val{font-size:1.75rem;font-weight:700;letter-spacing:-1px;line-height:1;}
+.kpi-val small{font-size:.85rem;font-weight:500;color:var(--muted);margin-left:3px;}
+.kpi-sub{font-size:.75rem;color:var(--muted);margin-top:8px;}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:0 0 auto;}
+.dot.verde{background:var(--verde);box-shadow:0 0 9px var(--verde);}
+.dot.amarillo{background:var(--amarillo);box-shadow:0 0 9px var(--amarillo);}
+.dot.rojo{background:var(--rojo);box-shadow:0 0 9px var(--rojo);}
+.progress{height:6px;background:#0d1626;border-radius:99px;overflow:hidden;margin-top:10px;}
+.progress i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#3b82f6,#06b6d4);}
+
+/* ---------- HERO OEE ---------- */
+.hero{
+  display:grid;grid-template-columns:auto 1fr;gap:34px;align-items:center;
+  background:linear-gradient(140deg,#152341,#0f1a2e);
+  border:1px solid var(--border);border-radius:16px;
+  padding:26px 30px;margin-bottom:20px;
+}
+@media(max-width:820px){.hero{grid-template-columns:1fr;gap:22px;}}
+
+.semaforo{
+  width:170px;height:170px;border-radius:50%;
+  display:grid;place-items:center;position:relative;
+  transition:box-shadow .4s;
+}
+.semaforo::after{
+  content:'';position:absolute;inset:14px;border-radius:50%;
+  background:#0d1626;border:1px solid var(--border);
+}
+.semaforo .inner{position:relative;z-index:2;text-align:center;}
+.semaforo .val{font-size:2.3rem;font-weight:800;letter-spacing:-2px;display:block;line-height:1;}
+.semaforo .lb{font-size:.68rem;letter-spacing:2.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;display:block;}
+.semaforo.verde{box-shadow:0 0 0 8px rgba(34,197,94,.10),0 0 42px rgba(34,197,94,.45);background:conic-gradient(var(--verde) var(--pct), #1b2740 0);}
+.semaforo.amarillo{box-shadow:0 0 0 8px rgba(245,179,1,.10),0 0 42px rgba(245,179,1,.42);background:conic-gradient(var(--amarillo) var(--pct), #1b2740 0);}
+.semaforo.rojo{box-shadow:0 0 0 8px rgba(239,68,68,.10),0 0 42px rgba(239,68,68,.42);background:conic-gradient(var(--rojo) var(--pct), #1b2740 0);}
+
+.comp-bars{display:flex;flex-direction:column;gap:14px;}
+.comp{display:grid;grid-template-columns:130px 1fr 68px;align-items:center;gap:14px;}
+.comp .name{font-size:.82rem;color:var(--muted);}
+.comp .track{height:11px;background:#0d1626;border-radius:99px;overflow:hidden;border:1px solid #1b2b48;}
+.comp .fill{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.2,.8,.2,1);}
+.comp .pct{text-align:right;font-weight:700;font-size:.92rem;}
+@media(max-width:560px){.comp{grid-template-columns:96px 1fr 58px;gap:9px;}}
+
+/* ---------- CHARTS ---------- */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(430px,1fr));gap:16px;margin-bottom:20px;}
+@media(max-width:920px){.grid2{grid-template-columns:1fr;}}
+.card{
+  background:linear-gradient(160deg,#131f36,#0f1a2e);
+  border:1px solid var(--border);border-radius:14px;padding:18px 20px;
+}
+.card h3{
+  font-size:.88rem;font-weight:600;margin-bottom:4px;
+  display:flex;align-items:center;gap:9px;
+}
+.card h3::before{content:'';width:3px;height:15px;border-radius:2px;background:var(--cyan);}
+.card .hint{font-size:.72rem;color:var(--muted);margin-bottom:14px;}
+.chart-box{position:relative;height:265px;}
+
+/* ---------- ESCENARIOS ---------- */
+.esc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:4px;}
+.esc{
+  background:#0d1626;border:1px solid #1b2b48;border-radius:11px;
+  padding:14px 15px;
+}
+.esc .t{font-size:.7rem;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);margin-bottom:7px;}
+.esc .v{font-size:1.28rem;font-weight:700;letter-spacing:-.5px;}
+.esc .v small{font-size:.72rem;color:var(--muted);font-weight:500;}
+
+/* ---------- TABLA ---------- */
+.table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border);}
+table{width:100%;border-collapse:collapse;font-size:.79rem;min-width:960px;}
+thead th{
+  background:#0e1a2d;color:var(--muted);font-weight:600;
+  text-transform:uppercase;font-size:.66rem;letter-spacing:.8px;
+  padding:11px 10px;text-align:right;white-space:nowrap;
+  border-bottom:1px solid var(--border);
+}
+thead th:first-child,tbody td:first-child{text-align:left;}
+tbody td{padding:10px;text-align:right;border-bottom:1px solid #16233d;white-space:nowrap;}
+tbody tr:hover{background:#152341;}
+tbody tr:last-child td{border-bottom:none;}
+tfoot td{padding:12px 10px;text-align:right;font-weight:700;background:#0e1a2d;border-top:2px solid #23375c;}
+tfoot td:first-child{text-align:left;}
+.flag{display:inline-block;width:10px;height:10px;border-radius:50%;}
+
+/* ---------- INSIGHTS ---------- */
+.insights{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-top:20px;}
+.ins{
+  background:linear-gradient(160deg,#131f36,#0f1a2e);
+  border:1px solid var(--border);border-left:3px solid var(--azul);
+  border-radius:11px;padding:15px 18px;
+}
+.ins.warn{border-left-color:var(--amarillo);}
+.ins.ok{border-left-color:var(--verde);}
+.ins.bad{border-left-color:var(--rojo);}
+.ins h4{font-size:.83rem;margin-bottom:7px;display:flex;align-items:center;gap:8px;}
+.ins p{font-size:.78rem;color:#b6c6dd;line-height:1.55;}
+
+/* ---------- FOOTER ---------- */
+.footer{
+  margin-top:26px;padding-top:18px;border-top:1px solid var(--border);
+  font-size:.72rem;color:var(--muted);line-height:1.7;
+}
+.footer code{background:#0d1626;padding:2px 7px;border-radius:5px;color:#7dd3fc;font-size:.71rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div>
+      <h1>Tablero de Control · <span>Tejeduría</span></h1>
+      <p class="sub">OEE · Trazabilidad diaria · Probabilidad de cumplimiento</p>
+    </div>
+    <div class="badges">
+      <div class="badge">Periodo <b>01 – 16 Sep 2026</b></div>
+      <div class="badge">Meta mes <b>500,000 m</b></div>
+      <div class="badge">Índice paros <b>&lt; 5.0</b></div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" id="kpiGrid"></div>
+
+  <!-- HERO OEE -->
+  <div class="hero">
+    <div class="semaforo" id="semaforoOEE">
+      <div class="inner">
+        <span class="val" id="oeeVal">--</span>
+        <span class="lb">OEE Global</span>
+      </div>
+    </div>
+    <div class="comp-bars" id="compBars"></div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="grid2">
+    <div class="card">
+      <h3>Producción diaria y proyección</h3>
+      <p class="hint">Barras = metros reales / proyectados · Línea = tendencia</p>
+      <div class="chart-box"><canvas id="chProd"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Avance acumulado vs. meta mensual</h3>
+      <p class="hint">Real, proyección y ritmo lineal requerido</p>
+      <div class="chart-box"><canvas id="chAcum"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>OEE y sus componentes</h3>
+      <p class="hint">Disponibilidad × Rendimiento × Calidad</p>
+      <div class="chart-box"><canvas id="chOEE"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Índice de paros (trama + urdimbre)</h3>
+      <p class="hint">Por 100,000 pasadas · Meta &lt; 5.0</p>
+      <div class="chart-box"><canvas id="chIdx"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Tendencia de la probabilidad de cumplimiento</h3>
+      <p class="hint">Probabilidad calculada día a día con la información disponible hasta esa fecha</p>
+      <div class="chart-box"><canvas id="chProb"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Distribución de la producción proyectada</h3>
+      <p class="hint">10,000 simulaciones Monte Carlo · cierre de mes</p>
+      <div class="chart-box"><canvas id="chHist"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ESCENARIOS -->
+  <div class="card" style="margin-bottom:20px;">
+    <h3>Escenarios y probabilidad de cierre</h3>
+    <p class="hint">Ritmos requeridos vs. ritmos observados para alcanzar los 500,000 m</p>
+    <div class="esc-grid" id="escGrid"></div>
+  </div>
+
+  <!-- TABLA -->
+  <div class="card">
+    <h3>Trazabilidad diaria</h3>
+    <p class="hint">Detalle de producción, telares, indicadores y semáforo por día</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Fecha</th><th>Día</th><th>Metros</th>
+            <th>Tel. Act.</th><th>Tel. Par.</th><th>Total</th>
+            <th>Disponib.</th><th>Rendim.</th><th>Calidad</th><th>OEE</th>
+            <th>Índice</th><th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+        <tfoot id="tfoot"></tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- INSIGHTS -->
+  <div class="insights" id="insights"></div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <b>Fórmulas aplicadas:</b><br>
+    <code>Disponibilidad = Telares activos / (Activos + Parados)</code> ·
+    <code>Rendimiento = Metros / (Telares activos × 380 m/telar/día)</code> ·
+    <code>Calidad = Meta índice / Índice real (tope 100%)</code> ·
+    <code>OEE = D × R × C</code><br>
+    <b>Proyección:</b> regresión lineal sobre los metros diarios + simulación Monte Carlo (10,000 escenarios) con ruido normal (σ de residuales).<br>
+    <b>Umbrales semáforo:</b> OEE ≥60% verde / 40–60% amarillo / &lt;40% rojo · Disponibilidad ≥85% / 70–85% / &lt;70% · Rendimiento ≥80% / 60–80% / &lt;60% · Índice ≤5.0 verde / 5.0–5.5 amarillo / &gt;5.5 rojo.
+  </div>
+
+</div>
+
+<script>
+/* ================================================================
+   1. DATOS CRUDOS
+   ================================================================ */
+const RAW = [
+  { fecha:'2026-09-01', metros:15676, activos:74, parados:38, indice:4.8 },
+  { fecha:'2026-09-02', metros:20210, activos:74, parados:38, indice:4.8 },
+  { fecha:'2026-09-03', metros:20205, activos:78, parados:34, indice:5.2 },
+  { fecha:'2026-09-04', metros:18645, activos:72, parados:40, indice:4.8 },
+  { fecha:'2026-09-05', metros:6433,  activos:49, parados:63, indice:5.2 },
+  { fecha:'2026-09-07', metros:20337, activos:66, parados:46, indice:5.3 },
+  { fecha:'2026-09-08', metros:22261, activos:68, parados:44, indice:4.6 },
+  { fecha:'2026-09-09', metros:23489, activos:65, parados:47, indice:4.6 },
+  { fecha:'2026-09-10', metros:25282, activos:70, parados:42, indice:4.3 },
+  { fecha:'2026-09-11', metros:20744, activos:69, parados:43, indice:5.1 },
+  { fecha:'2026-09-12', metros:8661,  activos:59, parados:53, indice:5.2 },
+  { fecha:'2026-09-13', metros:10660, activos:57, parados:55, indice:5.6 },
+  { fecha:'2026-09-14', metros:22609, activos:68, parados:44, indice:5.0 },
+  { fecha:'2026-09-15', metros:24059, activos:69, parados:43, indice:4.6 },
+  { fecha:'2026-09-16', metros:25367, activos:67, parados:45, indice:4.1 },
+];
+
+/* ================================================================
+   2. CONFIGURACIÓN
+   ================================================================ */
+const CFG = {
+  metaMes: 500000,
+  metaIndice: 5.0,
+  ritmoEstandar: 380,      // m por telar por día (mejor ritmo observado)
+  diasMes: 30,
+  ultimoDiaConData: 16,
+  umbral: {
+    oee:  { v:60, a:40 },
+    disp: { v:85, a:70 },
+    rend: { v:80, a:60 },
+    cal:  { v:98, a:95 }
+  }
+};
+
+const DIAS_SEMANA = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+/* ================================================================
+   3. CÁLCULOS BASE
+   ================================================================ */
+function calcDia(d){
+  const totalTel = d.activos + d.parados;
+  const A = totalTel > 0 ? d.activos / totalTel : 0;
+  const capTeorica = d.activos * CFG.ritmoEstandar;
+  const P = capTeorica > 0 ? Math.min(1, d.metros / capTeorica) : 0;
+  const Q = d.indice > 0 ? Math.min(1, CFG.metaIndice / d.indice) : 1;
+  const dt = new Date(d.fecha + 'T00:00:00');
+  return {
+    ...d,
+    dia: dt.getDate(),
+    dow: DIAS_SEMANA[dt.getDay()],
+    totalTel, A, P, Q,
+    OEE: A * P * Q,
+    capTeorica
+  };
+}
+
+const DIAS = RAW.map(calcDia);
+
+/* --- Agregados del periodo --- */
+const TOTAL_METROS = DIAS.reduce((s,d)=>s+d.metros,0);
+const AVG_A = DIAS.reduce((s,d)=>s+d.A,0) / DIAS.length;
+const AVG_P = DIAS.reduce((s,d)=>s+d.P,0) / DIAS.length;
+const AVG_Q = DIAS.reduce((s,d)=>s+d.Q,0) / DIAS.length;
+const AVG_OEE = AVG_A * AVG_P * AVG_Q;
+const AVG_IDX = DIAS.reduce((s,d)=>s+d.indice,0) / DIAS.length;
+const SUM_ACT = DIAS.reduce((s,d)=>s+d.activos,0);
+const SUM_TEL = DIAS.reduce((s,d)=>s+d.totalTel,0);
+const DISP_POND = SUM_ACT / SUM_TEL;
+
+const DIAS_RESTANTES = CFG.diasMes - CFG.ultimoDiaConData;   // 14
+const FALTANTE = CFG.metaMes - TOTAL_METROS;
+const RITMO_REQUERIDO = FALTANTE / DIAS_RESTANTES;
+
+/* ================================================================
+   4. REGRESIÓN LINEAL Y MONTE CARLO
+   ================================================================ */
+function regresion(pts){
+  const n = pts.length;
+  let sx=0, sy=0, sxy=0, sxx=0;
+  pts.forEach(p=>{ sx+=p.x; sy+=p.y; sxy+=p.x*p.y; sxx+=p.x*p.x; });
+  const den = n*sxx - sx*sx;
+  const b = den !== 0 ? (n*sxy - sx*sy)/den : 0;
+  const a = (sy - b*sx)/n;
+  let sse = 0;
+  pts.forEach(p=>{ const e = p.y - (a + b*p.x); sse += e*e; });
+  const sigma = n > 2 ? Math.sqrt(sse/(n-2)) : 0;
+  return { a, b, sigma, n };
+}
+
+function gauss(){
+  let u=0, v=0;
+  while(u===0) u=Math.random();
+  while(v===0) v=Math.random();
+  return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+}
+
+/** Monte Carlo: total de cierre de mes a partir de un día de corte */
+function monteCarlo(diaCorte, sims=10000, devolverMuestras=false){
+  const pts = DIAS.filter(d=>d.dia<=diaCorte).map(d=>({x:d.dia, y:d.metros}));
+  if(pts.length < 4) return { prob:0, p10:0, p50:0, p90:0, muestras:[] };
+
+  const { a, b, sigma } = regresion(pts);
+  const acum = DIAS.filter(d=>d.dia<=diaCorte).reduce((s,d)=>s+d.metros,0);
+
+  let exitos = 0;
+  const totales = new Array(sims);
+
+  for(let s=0; s<sims; s++){
+    let t = acum;
+    for(let d = diaCorte+1; d <= CFG.diasMes; d++){
+      t += Math.max(0, a + b*d + gauss()*sigma);
+    }
+    totales[s] = t;
+    if(t >= CFG.metaMes) exitos++;
+  }
+  totales.sort((x,y)=>x-y);
+  return {
+    prob: exitos/sims,
+    p10: totales[Math.floor(sims*0.10)],
+    p50: totales[Math.floor(sims*0.50)],
+    p90: totales[Math.floor(sims*0.90)],
+    muestras: devolverMuestras ? totales : [],
+    a, b, sigma
+  };
+}
+
+const PTS_FULL = DIAS.map(d=>({x:d.dia, y:d.metros}));
+const REG = regresion(PTS_FULL);
+const MC  = monteCarlo(CFG.ultimoDiaConData, 10000, true);
+
+/* Ritmos de referencia */
+const ULT7 = DIAS.slice(-7);
+const RITMO_7D = ULT7.reduce((s,d)=>s+d.metros,0)/ULT7.length;
+const RITMO_TEND = REG.a + REG.b*(CFG.ultimoDiaConData + 1 + DIAS_RESTANTES/2);
+
+/* Escenario conservador (sin tendencia, ritmo últimos 7 días) */
+const PROY_CONSERV = TOTAL_METROS + RITMO_7D*DIAS_RESTANTES;
+const PROY_TENDENCIAL = MC.p50;
+
+/* ================================================================
+   5. SEMÁFOROS
+   ================================================================ */
+function colorOEE(v){
+  if(v*100 >= CFG.umbral.oee.v) return 'verde';
+  if(v*100 >= CFG.umbral.oee.a) return 'amarillo';
+  return 'rojo';
+}
+function colorDisp(v){
+  if(v*100 >= CFG.umbral.disp.v) return 'verde';
+  if(v*100 >= CFG.umbral.disp.a) return 'amarillo';
+  return 'rojo';
+}
+function colorRend(v){
+  if(v*100 >= CFG.umbral.rend.v) return 'verde';
+  if(v*100 >= CFG.umbral.rend.a) return 'amarillo';
+  return 'rojo';
+}
+function colorCal(v){
+  if(v*100 >= CFG.umbral.cal.v) return 'verde';
+  if(v*100 >= CFG.umbral.cal.a) return 'amarillo';
+  return 'rojo';
+}
+function colorIndice(v){
+  if(v <= CFG.metaIndice) return 'verde';
+  if(v <= 5.5) return 'amarillo';
+  return 'rojo';
+}
+
+/* ================================================================
+   6. UTILIDADES
+   ================================================================ */
+const nf  = n => n.toLocaleString('es-ES',{maximumFractionDigits:0});
+const nf1 = n => n.toLocaleString('es-ES',{minimumFractionDigits:1,maximumFractionDigits:1});
+const pct = n => (n*100).toFixed(1) + '%';
+
+/* ================================================================
+   7. RENDER — KPI CARDS
+   ================================================================ */
+function renderKPIs(){
+  const avance = TOTAL_METROS / CFG.metaMes;
+
+  const cards = [
+    {
+      accent:'#3b82f6',
+      lbl:'Producción acumulada',
+      val: nf(TOTAL_METROS) + ' <small>m</small>',
+      sub: `${pct(avance)} de 500,000 m · faltan ${nf(FALTANTE)} m`,
+      bar: avance*100,
+      dot: avance >= 0.8 ? 'verde' : avance >= 0.5 ? 'amarillo' : 'rojo'
+    },
+    {
+      accent:'#06b6d4',
+      lbl:'OEE Global',
+      val: pct(AVG_OEE),
+      sub: `D ${pct(AVG_A)} × R ${pct(AVG_P)} × C ${pct(AVG_Q)}`,
+      dot: colorOEE(AVG_OEE)
+    },
+    {
+      accent:'#22c55e',
+      lbl:'Disponibilidad',
+      val: pct(AVG_A),
+      sub: `Ponderada ${pct(DISP_POND)} · ${(SUM_ACT/DIAS.length).toFixed(1)} telares activos prom.`,
+      dot: colorDisp(AVG_A)
+    },
+    {
+      accent:'#8b5cf6',
+      lbl:'Rendimiento',
+      val: pct(AVG_P),
+      sub: `Estándar ${CFG.ritmoEstandar} m/telar/día`,
+      dot: colorRend(AVG_P)
+    },
+    {
+      accent:'#f5b301',
+      lbl:'Calidad',
+      val: pct(AVG_Q),
+      sub: `Índice promedio ${nf1(AVG_IDX)} vs meta 5.0`,
+      dot: colorCal(AVG_Q)
+    },
+    {
+      accent: AVG_IDX <= 5 ? '#22c55e' : '#ef4444',
+      lbl:'Índice de paros TU',
+      val: nf1(AVG_IDX),
+      sub: `${DIAS.filter(d=>d.indice>5).length} de ${DIAS.length} días sobre la meta`,
+      dot: colorIndice(AVG_IDX)
+    },
+    {
+      accent: MC.prob >= 0.8 ? '#22c55e' : MC.prob >= 0.5 ? '#f5b301' : '#ef4444',
+      lbl:'Probabilidad de cumplimiento',
+      val: (MC.prob*100).toFixed(1) + '%',
+      sub: `Cierre proyectado ≈ ${nf(MC.p50)} m`,
+      dot: MC.prob >= 0.8 ? 'verde' : MC.prob >= 0.5 ? 'amarillo' : 'rojo'
+    }
+  ];
+
+  document.getElementById('kpiGrid').innerHTML = cards.map(c=>`
+    <div class="kpi" style="--accent:${c.accent}">
+      <div class="kpi-lbl"><span class="dot ${c.dot}"></span>${c.lbl}</div>
+      <div class="kpi-val">${c.val}</div>
+      <div class="kpi-sub">${c.sub}</div>
+      ${c.bar !== undefined ? `<div class="progress"><i style="width:${Math.min(100,c.bar)}%"></i></div>` : ''}
+    </div>
+  `).join('');
+}
+
+/* ================================================================
+   8. RENDER — SEMÁFORO OEE + BARRAS
+   ================================================================ */
+function renderSemaforo(){
+  const color = colorOEE(AVG_OEE);
+  const el = document.getElementById('semaforoOEE');
+  el.className = 'semaforo ' + color;
+  el.style.setProperty('--pct', (AVG_OEE*100).toFixed(1) + '%');
+  document.getElementById('oeeVal').textContent = pct(AVG_OEE);
+
+  const comps = [
+    { name:'Disponibilidad', val:AVG_A, color:'#22c55e' },
+    { name:'Rendimiento',    val:AVG_P, color:'#8b5cf6' },
+    { name:'Calidad',        val:AVG_Q, color:'#f5b301' },
+    { name:'OEE',            val:AVG_OEE, color:'#06b6d4' }
+  ];
+
+  document.getElementById('compBars').innerHTML = comps.map(c=>`
+    <div class="comp">
+      <span class="name">${c.name}</span>
+      <span class="track">
+        <span class="fill" style="width:${(c.val*100).toFixed(1)}%;background:linear-gradient(90deg,${c.color}88,${c.color})"></span>
+      </span>
+      <span class="pct" style="color:${c.color}">${pct(c.val)}</span>
+    </div>
+  `).join('');
+}
+
+/* ================================================================
+   9. RENDER — ESCENARIOS
+   ================================================================ */
+function renderEscenarios(){
+  const items = [
+    {
+      t:'Ritmo requerido',
+      v: nf(RITMO_REQUERIDO) + ' <small>m/día</small>',
+      c: RITMO_REQUERIDO <= RITMO_7D ? 'var(--verde)' : 'var(--rojo)'
+    },
+    {
+      t:'Ritmo real (últimos 7 días)',
+      v: nf(RITMO_7D) + ' <small>m/día</small>',
+      c:'var(--text)'
+    },
+    {
+      t:'Ritmo tendencial',
+      v: nf(RITMO_TEND) + ' <small>m/día</small>',
+      c:'var(--text)'
+    },
+    {
+      t:'Proyección conservadora',
+      v: nf(PROY_CONSERV) + ' <small>m</small>',
+      c: PROY_CONSERV >= CFG.metaMes ? 'var(--verde)' : 'var(--rojo)'
+    },
+    {
+      t:'Proyección tendencial (P50)',
+      v: nf(PROY_TENDENCIAL) + ' <small>m</small>',
+      c:'var(--cyan)'
+    },
+    {
+      t:'Escenario pesimista (P10)',
+      v: nf(MC.p10) + ' <small>m</small>',
+      c: MC.p10 >= CFG.metaMes ? 'var(--verde)' : 'var(--amarillo)'
+    },
+    {
+      t:'Escenario optimista (P90)',
+      v: nf(MC.p90) + ' <small>m</small>',
+      c:'var(--verde)'
+    },
+    {
+      t:'Holgura sobre la meta',
+      v: nf(MC.p50 - CFG.metaMes) + ' <small>m</small>',
+      c: MC.p50 >= CFG.metaMes ? 'var(--verde)' : 'var(--rojo)'
+    }
+  ];
+
+  document.getElementById('escGrid').innerHTML = items.map(i=>`
+    <div class="esc">
+      <div class="t">${i.t}</div>
+      <div class="v" style="color:${i.c}">${i.v}</div>
+    </div>
+  `).join('');
+}
+
+/* ================================================================
+   10. RENDER — TABLA
+   ================================================================ */
+function renderTabla(){
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = DIAS.map(d=>{
+    const c = colorOEE(d.OEE);
+    return `<tr>
+      <td>${d.fecha.split('-').reverse().join('/')}</td>
+      <td>${d.dow}</td>
+      <td>${nf(d.metros)}</td>
+      <td>${d.activos}</td>
+      <td>${d.parados}</td>
+      <td>${d.totalTel}</td>
+      <td style="color:${colorDisp(d.A)==='verde'?'var(--verde)':colorDisp(d.A)==='amarillo'?'var(--amarillo)':'var(--rojo)'}">${pct(d.A)}</td>
+      <td>${pct(d.P)}</td>
+      <td>${pct(d.Q)}</td>
+      <td style="font-weight:700">${pct(d.OEE)}</td>
+      <td style="color:${colorIndice(d.indice)==='verde'?'var(--verde)':colorIndice(d.indice)==='amarillo'?'var(--amarillo)':'var(--rojo)'}">${nf1(d.indice)}</td>
+      <td><span class="flag" style="background:var(--${c});box-shadow:0 0 8px var(--${c})"></span></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('tfoot').innerHTML = `
+    <tr>
+      <td>TOTAL / PROMEDIO</td>
+      <td>${DIAS.length} días</td>
+      <td>${nf(TOTAL_METROS)}</td>
+      <td>${(SUM_ACT/DIAS.length).toFixed(1)}</td>
+      <td>${(DIAS.reduce((s,d)=>s+d.parados,0)/DIAS.length).toFixed(1)}</td>
+      <td>${(SUM_TEL/DIAS.length).toFixed(0)}</td>
+      <td>${pct(AVG_A)}</td>
+      <td>${pct(AVG_P)}</td>
+      <td>${pct(AVG_Q)}</td>
+      <td>${pct(AVG_OEE)}</td>
+      <td>${nf1(AVG_IDX)}</td>
+      <td><span class="flag" style="background:var(--${colorOEE(AVG_OEE)});box-shadow:0 0 8px var(--${colorOEE(AVG_OEE)})"></span></td>
+    </tr>
+  `;
+}
+
+/* ================================================================
+   11. RENDER — INSIGHTS
+   ================================================================ */
+function renderInsights(){
+  const mejorDia = [...DIAS].sort((a,b)=>b.OEE-a.OEE)[0];
+  const peorDia  = [...DIAS].sort((a,b)=>a.OEE-b.OEE)[0];
+  const diasSobreIdx = DIAS.filter(d=>d.indice > CFG.metaIndice).length;
+  const tendenciaIdx = DIAS.slice(-4).reduce((s,d)=>s+d.indice,0)/4;
+  const tendenciaIdxPrev = DIAS.slice(-8,-4).reduce((s,d)=>s+d.indice,0)/4;
+
+  const items = [];
+
+  items.push({
+    cls: MC.prob >= 0.8 ? 'ok' : MC.prob >= 0.5 ? 'warn' : 'bad',
+    title: `Probabilidad de cumplimiento: ${(MC.prob*100).toFixed(1)}%`,
+    text: `Con el ritmo actual, la proyección de cierre es de <b>${nf(MC.p50)} m</b> (P10: ${nf(MC.p10)} m · P90: ${nf(MC.p90)} m).
+           Se requiere un ritmo de <b>${nf(RITMO_REQUERIDO)} m/día</b> durante los ${DIAS_RESTANTES} días restantes,
+           mientras que el ritmo real de los últimos 7 días es de <b>${nf(RITMO_7D)} m/día</b>.`
+  });
+
+  items.push({
+    cls: AVG_A < 0.70 ? 'bad' : AVG_A < 0.85 ? 'warn' : 'ok',
+    title: `Disponibilidad: ${pct(AVG_A)} — principal cuello de botella`,
+    text: `En promedio hay <b>${(SUM_ACT/DIAS.length).toFixed(0)} telares activos de 112</b>, es decir
+           <b>${(112 - SUM_ACT/DIAS.length).toFixed(0)} telares parados</b> por día.
+           Es el factor que más penaliza el OEE: si la disponibilidad subiera a 80%, el OEE pasaría de
+           <b>${pct(AVG_OEE)}</b> a aproximadamente <b>${pct(0.80*AVG_P*AVG_Q)}</b>.`
+  });
+
+  items.push({
+    cls: 'ok',
+    title: `Rendimiento: ${pct(AVG_P)} — telares activos trabajando bien`,
+    text: `Los telares que están operativos rinden a buen nivel. El mejor día fue el
+           <b>${mejorDia.fecha.split('-').reverse().join('/')}</b> con <b>${pct(mejorDia.P)}</b> de rendimiento
+           (${nf(mejorDia.metros)} m con ${mejorDia.activos} telares). El problema no es la velocidad,
+           es la cantidad de máquinas detenidas.`
+  });
+
+  items.push({
+    cls: colorIndice(AVG_IDX) === 'verde' ? 'ok' : 'warn',
+    title: `Calidad: ${pct(AVG_Q)} — índice promedio ${nf1(AVG_IDX)}`,
+    text: `${diasSobreIdx} de ${DIAS.length} días superaron la meta de 5.0 paros por 100,000 pasadas.
+           La tendencia reciente es <b>${tendenciaIdx < tendenciaIdxPrev ? 'favorable ↓' : 'desfavorable ↑'}</b>
+           (${nf1(tendenciaIdxPrev)} → ${nf1(tendenciaIdx)} en los últimos 8 días). El último registro fue
+           <b>${nf1(DIAS[DIAS.length-1].indice)}</b>, el mejor del mes.`
+  });
+
+  items.push({
+    cls: 'warn',
+    title: `Días críticos: ${peorDia.fecha.split('-').reverse().join('/')} con OEE ${pct(peorDia.OEE)}`,
+    text: `Los días 5, 12 y 13 de septiembre concentran las mayores caídas (OEE de 14.5%, 19.6% y 22.4%).
+           Coinciden con reducciones fuertes de telares activos (49, 59 y 57) y producción muy por debajo del promedio.
+           Estos episodios aislados restan aproximadamente <b>${nf((19000 - 6433) + (19000 - 8661) + (19000 - 10660))} m</b> al mes.`
+  });
+
+  items.push({
+    cls: AVG_OEE >= 0.60 ? 'ok' : AVG_OEE >= 0.40 ? 'warn' : 'bad',
+    title: `OEE Global: ${pct(AVG_OEE)}`,
+    text: `El OEE está en zona ${colorOEE(AVG_OEE)}. El estándar mundial para manufactura discreta es ≥85%,
+           y para plantas en mejora se apunta a 60–65%. La brecha principal está en disponibilidad;
+           rendimiento y calidad ya están en niveles aceptables.`
+  });
+
+  document.getElementById('insights').innerHTML = items.map(i=>`
+    <div class="ins ${i.cls}">
+      <h4>${i.title}</h4>
+      <p>${i.text}</p>
+    </div>
+  `).join('');
+}
+
+/* ================================================================
+   12. GRÁFICOS
+   ================================================================ */
+Chart.defaults.color = '#8ba0c0';
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+Chart.defaults.font.size = 11;
+
+const GRID = { color:'#1b2b48', drawBorder:false };
+const BASE_SCALES = {
+  x:{ grid:GRID, ticks:{ color:'#8ba0c0', maxRotation:0, autoSkip:true, maxTicksLimit:16 } },
+  y:{ grid:GRID, ticks:{ color:'#8ba0c0' }, beginAtZero:true }
+};
+const LEGEND = {
+  labels:{ color:'#8ba0c0', boxWidth:11, boxHeight:11, usePointStyle:true, pointStyle:'circle', padding:14 }
+};
+
+function buildCharts(){
+
+  /* ---- 12.1 Producción diaria + proyección ---- */
+  const labels30 = Array.from({length:CFG.diasMes}, (_,i)=>String(i+1));
+  const realArr = labels30.map((_,i)=>{
+    const d = DIAS.find(x=>x.dia === i+1);
+    return d ? d.metros : null;
+  });
+  const proyArr = labels30.map((_,i)=>{
+    const dia = i+1;
+    if(dia <= CFG.ultimoDiaConData) return null;
+    return Math.max(0, REG.a + REG.b*dia);
+  });
+  const tendArr = labels30.map((_,i)=> Math.max(0, REG.a + REG.b*(i+1)));
+
+  new Chart(document.getElementById('chProd'), {
+    type:'bar',
+    data:{
+      labels: labels30,
+      datasets:[
+        { label:'Metros reales', data:realArr, backgroundColor:'rgba(59,130,246,.75)',
+          borderColor:'#3b82f6', borderWidth:1, borderRadius:3, barPercentage:.8 },
+        { label:'Proyección', data:proyArr, backgroundColor:'rgba(6,182,212,.30)',
+          borderColor:'#06b6d4', borderWidth:1, borderRadius:3, barPercentage:.8 },
+        { label:'Tendencia', data:tendArr, type:'line', borderColor:'#f5b301',
+          borderWidth:2, borderDash:[6,4], pointRadius:0, tension:.3, fill:false }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:LEGEND, tooltip:{ callbacks:{
+        label: c => c.dataset.label + ': ' + (c.parsed.y!==null ? nf(c.parsed.y)+' m' : '—')
+      }}},
+      scales: BASE_SCALES
+    }
+  });
+
+  /* ---- 12.2 Acumulado vs meta ---- */
+  let acum = 0;
+  const acumReal = labels30.map((_,i)=>{
+    const d = DIAS.find(x=>x.dia === i+1);
+    if(d){ acum += d.metros; return acum; }
+    return (i+1) <= CFG.ultimoDiaConData ? null : null;
+  });
+  const acumProy = labels30.map((_,i)=>{
+    const dia = i+1;
+    if(dia < CFG.ultimoDiaConData) return null;
+    if(dia === CFG.ultimoDiaConData) return TOTAL_METROS;
+    let t = TOTAL_METROS;
+    for(let d=CFG.ultimoDiaConData+1; d<=dia; d++) t += Math.max(0, REG.a + REG.b*d);
+    return t;
+  });
+  const metaLineal = labels30.map((_,i)=> CFG.metaMes/CFG.diasMes*(i+1));
+
+  new Chart(document.getElementById('chAcum'), {
+    type:'line',
+    data:{
+      labels: labels30,
+      datasets:[
+        { label:'Acumulado real', data:acumReal, borderColor:'#22c55e',
+          backgroundColor:'rgba(34,197,94,.13)', fill:true, tension:.25,
+          pointRadius:0, borderWidth:2.5, spanGaps:false },
+        { label:'Proyección', data:acumProy, borderColor:'#06b6d4',
+          borderDash:[6,4], borderWidth:2.5, pointRadius:0, tension:.25, fill:false },
+        { label:'Meta lineal (500,000 m)', data:metaLineal, borderColor:'#ef4444',
+          borderWidth:1.6, borderDash:[3,3], pointRadius:0, fill:false }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:LEGEND, tooltip:{ callbacks:{
+        label: c => c.dataset.label + ': ' + (c.parsed.y!==null ? nf(c.parsed.y)+' m' : '—')
+      }}},
+      scales:{
+        x: BASE_SCALES.x,
+        y:{ ...BASE_SCALES.y, ticks:{ color:'#8ba0c0',
+            callback: v => (v/1000).toFixed(0)+'k' } }
+      }
+    }
+  });
+
+  /* ---- 12.3 OEE y componentes ---- */
+  const labelsDias = DIAS.map(d=>d.dia + '/' + d.fecha.split('-')[2]);
+  new Chart(document.getElementById('chOEE'), {
+    type:'line',
+    data:{
+      labels: labelsDias,
+      datasets:[
+        { label:'Disponibilidad', data:DIAS.map(d=>+(d.A*100).toFixed(1)),
+          borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,.08)',
+          borderWidth:2, pointRadius:2.5, tension:.3, fill:false },
+        { label:'Rendimiento', data:DIAS.map(d=>+(d.P*100).toFixed(1)),
+          borderColor:'#8b5cf6', borderWidth:2, pointRadius:2.5, tension:.3, fill:false },
+        { label:'Calidad', data:DIAS.map(d=>+(d.Q*100).toFixed(1)),
+          borderColor:'#f5b301', borderWidth:2, pointRadius:2.5, tension:.3, fill:false },
+        { label:'OEE', data:DIAS.map(d=>+(d.OEE*100).toFixed(1)),
+          borderColor:'#06b6d4', backgroundColor:'rgba(6,182,212,.12)',
+          borderWidth:3, pointRadius:3.5, tension:.3, fill:true }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:LEGEND, tooltip:{ callbacks:{
+        label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%'
+      }}},
+      scales:{
+        x: BASE_SCALES.x,
+        y:{ grid:GRID, beginAtZero:true, max:100,
+            ticks:{ color:'#8ba0c0', callback:v=>v+'%' } }
+      }
+    }
+  });
+
+  /* ---- 12.4 Índice de paros ---- */
+  new Chart(document.getElementById('chIdx'), {
+    type:'line',
+    data:{
+      labels: labelsDias,
+      datasets:[
+        { label:'Índice TU x 100k pasadas', data:DIAS.map(d=>d.indice),
+          borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,.13)',
+          borderWidth:2.5, pointRadius:4, tension:.3, fill:true,
+          pointBackgroundColor: DIAS.map(d => d.indice > CFG.metaIndice ? '#ef4444' : '#22c55e'),
+          pointBorderColor:'#0d1626', pointBorderWidth:2 },
+        { label:'Meta 5.0', data:DIAS.map(()=>CFG.metaIndice),
+          borderColor:'#ef4444', borderWidth:1.8, borderDash:[7,5],
+          pointRadius:0, fill:false }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:LEGEND },
+      scales:{
+        x: BASE_SCALES.x,
+        y:{ grid:GRID, beginAtZero:false,
+            suggestedMin:3.5, suggestedMax:6,
+            ticks:{ color:'#8ba0c0', callback:v=>v.toFixed(1) } }
+      }
+    }
+  });
+
+  /* ---- 12.5 Evolución de la probabilidad ---- */
+  const probLabels = [], probData = [];
+  for(let d=6; d<=CFG.ultimoDiaConData; d++){
+    const p = monteCarlo(d, 2500).prob;
+    probLabels.push(d + '/09');
+    probData.push(+(p*100).toFixed(1));
+  }
+  new Chart(document.getElementById('chProb'), {
+    type:'line',
+    data:{
+      labels: probLabels,
+      datasets:[
+        { label:'Probabilidad de cumplimiento', data:probData,
+          borderColor:'#22c55e', backgroundColor:'rgba(34,197,94,.15)',
+          borderWidth:3, pointRadius:4, tension:.35, fill:true,
+          pointBackgroundColor:'#22c55e', pointBorderColor:'#0d1626', pointBorderWidth:2 },
+        { label:'Umbral 80%', data:probLabels.map(()=>80),
+          borderColor:'#f5b301', borderDash:[6,4], borderWidth:1.6,
+          pointRadius:0, fill:false }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:LEGEND, tooltip:{ callbacks:{
+        label: c => c.dataset.label + ': ' + c.parsed.y.toFixed(1) + '%'
+      }}},
+      scales:{
+        x: BASE_SCALES.x,
+        y:{ grid:GRID, beginAtZero:true, max:100,
+            ticks:{ color:'#8ba0c0', callback:v=>v+'%' } }
+      }
+    }
+  });
+
+  /* ---- 12.6 Histograma Monte Carlo ---- */
+  const muestras = MC.muestras;
+  const min = muestras[0], max = muestras[muestras.length-1];
+  const nBins = 32;
+  const ancho = (max - min) / nBins;
+  const bins = new Array(nBins).fill(0);
+  muestras.forEach(v=>{
+    let i = Math.floor((v - min)/ancho);
+    if(i >= nBins) i = nBins-1;
+    if(i < 0) i = 0;
+    bins[i]++;
+  });
+  const binLabels = bins.map((_,i)=>{
+    const c = min + ancho*(i+0.5);
+    return Math.round(c/1000) + 'k';
+  });
+
+  new Chart(document.getElementById('chHist'), {
+    type:'bar',
+    data:{
+      labels: binLabels,
+      datasets:[{
+        label:'Frecuencia',
+        data: bins,
+        backgroundColor: bins.map((_,i)=> (min + ancho*(i+0.5)) >= CFG.metaMes
+            ? 'rgba(34,197,94,.80)' : 'rgba(239,68,68,.80)'),
+        borderColor: bins.map((_,i)=> (min + ancho*(i+0.5)) >= CFG.metaMes
+            ? '#22c55e' : '#ef4444'),
+        borderWidth:1, borderRadius:3
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{
+          title: items => '≈ ' + nf(min + ancho*(items[0].dataIndex+0.5)) + ' m',
+          label: c => nf(c.parsed.y) + ' simulaciones'
+        }}
+      },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ color:'#8ba0c0', maxRotation:0,
+            autoSkip:true, maxTicksLimit:12 } },
+        y:{ grid:GRID, beginAtZero:true, ticks:{ color:'#8ba0c0' } }
+      }
+    }
+  });
+}
+
+/* ================================================================
+   13. INIT
+   ================================================================ */
+renderKPIs();
+renderSemaforo();
+renderEscenarios();
+renderTabla();
+renderInsights();
+buildCharts();
+</script>
+</body>
+</html>
